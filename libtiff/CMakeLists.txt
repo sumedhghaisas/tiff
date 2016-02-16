@@ -100,18 +100,35 @@ endif()
 add_library(libtiff ${lib_srcs})
 target_link_libraries(libtiff PUBLIC ZLIB::zlib)
 
+# Create separate static library if BUILD_SHARED_LIBS is on
+# as target libtiff will be converted to shared library
+if(BUILD_SHARED_LIBS)
+  add_library(libtiff_static STATIC ${lib_srcs})
+  target_link_libraries(libtiff_static PUBLIC ZLIB::zlib)
+  set_target_properties(libtiff_static PROPERTIES OUTPUT_NAME libtiff)
+endif()
+
 # Some platforms (e.g. Linux) need separate math library
 check_library_exists(m pow "" LIB_M_REQUIRED)
 if(LIB_M_REQUIRED)
   target_link_libraries(libtiff PRIVATE m)
+  if(BUILD_SHARED_LIBS)
+    target_link_libraries(libtiff_static PRIVATE m)
+  endif()
 endif()
 
 if(UNIX AND CMAKE_COMPILER_IS_GNUCXX)
   set_target_properties(libtiff PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+  if(BUILD_SHARED_LIBS)
+    set_target_properties(libtiff_static PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+  endif()
 endif()
 
 if(ENABLE_SOLUTION_FOLDERS)
   set_target_properties(libtiff PROPERTIES FOLDER "3rdparty")
+  if(BUILD_SHARED_LIBS)
+    set_target_properties(libtiff_static PROPERTIES FOLDER "3rdparty")
+  endif()
 endif()
 
 ####
@@ -145,6 +162,17 @@ install(
     RUNTIME DESTINATION "bin"
     INCLUDES DESTINATION "${include_install_dir}"
 )
+
+if(BUILD_SHARED_LIBS)
+  install(
+    TARGETS libtiff_static
+    EXPORT "${targets_export_name}"
+    LIBRARY DESTINATION "lib"
+    ARCHIVE DESTINATION "lib"
+    RUNTIME DESTINATION "bin"
+    INCLUDES DESTINATION "${include_install_dir}"
+  )
+endif()
 
 install(
     FILES "${CMAKE_CURRENT_BINARY_DIR}/tif_config.h" tiffio.h tiff.h tiffvers.h
